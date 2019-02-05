@@ -1,1 +1,6 @@
 # enigma
+
+## Running
+```
+cargo run
+``` 
