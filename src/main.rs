@@ -9,12 +9,8 @@ extern crate bitcoin;
 //use std::io::Read;
 
 use bitcoin::network::constants::Network;
-use bitcoin::util::address::Payload;
-use bitcoin::util::address::Address;
-use secp256k1::Secp256k1;
-use secp256k1::key::PublicKey;
-//use secp256k1::rand;
-use secp256k1::rand::OsRng;
+use bitcoin::util::address::{Address, Payload};
+use secp256k1::{Secp256k1, key::PublicKey, rand::thread_rng};
 
 // fn handler_two(req: &mut Request) -> IronResult<Response> {
 //     let mut payload = String::new();
@@ -42,8 +38,7 @@ fn main() {
  
     // Generate random key pair
     let s = Secp256k1::new();
-    let mut rng = OsRng::new().expect("OsRng");
-    let (secret_key, public_key) = s.generate_keypair(&mut rng);
+    let (secret_key, public_key) = s.generate_keypair(&mut thread_rng());
  
     // Generate pay-to-pubkey address
     let address = Address::p2pk(&public_key, network);
