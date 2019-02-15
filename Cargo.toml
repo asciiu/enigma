@@ -5,7 +5,10 @@ authors = ["Flowmaster <ellyssin.gimhae@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+bitcoin = "0.16.0"
+rand = "0.6.5"
 router = "*"
+secp256k1 = "0.12.2"
 
 [dependencies.iron]
 version = "*"
