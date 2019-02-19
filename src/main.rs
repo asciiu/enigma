@@ -1,52 +1,77 @@
-extern crate iron;
-extern crate router;
-extern crate secp256k1;
-extern crate bitcoin;
+extern crate hyper;
+extern crate futures;
 
-//use iron::prelude::*;
-//use iron::status;
-//use router::Router;
-//use std::io::Read;
+#[macro_use]
+extern crate log;
+extern crate env_logger;
 
-use bitcoin::network::constants::Network;
-use bitcoin::util::address::{Address, Payload};
-use secp256k1::{Secp256k1, key::PublicKey, rand::thread_rng};
+use hyper::{Chunk, StatusCode};
+use hyper::Method::{Get, Post};
+use hyper::server::{Request, Response, Service};
 
-// fn handler_two(req: &mut Request) -> IronResult<Response> {
-//     let mut payload = String::new();
+use futures::Stream;
+use futures::future::{Future, FutureResult};
 
-//     // read the POST body
-//     req.body.read_to_string(&mut payload).unwrap();
-//     println!("{:?}", payload);
+struct NewMessage {
+    username: String,
+    message: String,
+}
 
-//     Ok(Response::with((status::Ok, "")))
-// }
+fn parse_form(form_chunk: Chunk) -> FutureResult<NewMessage, hyper::Error> {
+    futures::future::ok(NewMessage {
+        username: String::new(),
+        message: String::new(),
+    })
+}
+
+fn write_to_db(entry: NewMessage) -> FutureResult<i64, hyper::Error> {
+    futures::future::ok(0)
+}
+
+fn make_post_response(
+    result: Result<i64, hyper::Error>,
+) -> FutureResult<hyper::Response, hyper::Error> {
+    futures::future::ok(Response::new().with_status(StatusCode::NotFound))
+}
+
+struct Microservice;
+
+impl Service for Microservice {
+    type Request = Request;
+    type Response = Response;
+    type Error = hyper::Error;
+    type Future = Box<Future<Item = Self::Response, Error = Self::Error>>;
+
+    //fn call(&self, request: Request) -> Self::Future {
+    //    info!("Microservice received a request: {:?}", request);
+
+    //    Box::new(futures::future::ok(Response::new()))
+    //}
+
+    fn call(&self, request: Request) -> Self::Future {
+        match (request.method(), request.path()) {
+            (&Post, "/") => {
+                let future = request
+                    .body()
+                    .concat2()
+                    .and_then(parse_form)
+                    .and_then(write_to_db)
+                    .then(make_post_response);
+                Box::new(future)
+            }
+            _ => Box::new(futures::future::ok(
+                Response::new().with_status(StatusCode::NotFound),
+            )),
+        }
+    }
+}
 
 fn main() {
-    //let mut router = Router::new();           // Alternative syntax:
-    //router.get("/", handler, "index");        // let router = router!(index: get "/" => handler,
-    //router.get("/:query", handler, "query");  //                      query: get "/:query" => handler);
-    //router.post("/testpost", handler_two, "post");
-
-    //Iron::new(router).http("localhost:3000").unwrap();
-
-    //fn handler(req: &mut Request) -> IronResult<Response> {
-    //    let ref query = req.extensions.get::<Router>().unwrap().find("query").unwrap_or("/");
-    //    Ok(Response::with((status::Ok, *query)))
-    //}
-    let network = Network::Bitcoin;
- 
-    // Generate random key pair
-    let s = Secp256k1::new();
-    let (secret_key, public_key) = s.generate_keypair(&mut thread_rng());
- 
-    // Generate pay-to-pubkey address
-    let address = Address::p2pk(&public_key, network);
-    println!("{}", address);
- 
-    // Check address payload is public key given
-    assert_eq!(address.payload, Payload::Pubkey(public_key));
- 
-    // Check address can be unlocked by secret_key
-    assert_eq!(address.payload, Payload::Pubkey(PublicKey::from_secret_key(&s, &secret_key)));
+    env_logger::init();
+    let address = "127.0.0.1:8080".parse().unwrap();
+    let server = hyper::server::Http::new()
+        .bind(&address, || Ok(Microservice {}))
+        .unwrap();
+    info!("Running microservice at {}", address);
+    server.run().unwrap();
 }
